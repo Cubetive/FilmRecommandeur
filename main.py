@@ -11,6 +11,15 @@ under the MIT License. Please consult LICENSE for further details.
 
 Copyright (c) 2025 Minh Nguyen & Yifan Qiu
 """
+import database_import
+
+DATABASE_FILE = 'data/rottentomatoes-400k.csv'
+SENTIMENT_FILE = 'data/sentiment_scores.txt'
 
 if __name__ == "__main__":
-    print("Assume that there's something here lol")
+    # Build review graph
+    review_graph = database_import.load_review_graph(DATABASE_FILE, SENTIMENT_FILE)
+
+    # Build application
+
+    # Build graph visualization
