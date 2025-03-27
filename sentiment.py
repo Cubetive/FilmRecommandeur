@@ -44,6 +44,11 @@ def get_sentiment_review_score(review: str, sentiment_scores: dict[str, tuple[fl
             pos_score += sentiment_scores[word][0]
             neg_score += sentiment_scores[word][1]
 
+    # If there are no sentiment keywords, assume that the review is neutral
+    # This will also apply to reviews in non-English languages
+    if sen_keywords < 1:
+        return 0
+
     overall_score = (pos_score - neg_score) / sen_keywords
     return round(overall_score, 3)
 
