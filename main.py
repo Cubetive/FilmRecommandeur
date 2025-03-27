@@ -1,6 +1,6 @@
-"""CSC111 Project 2: OptiTransport - Main
+"""CSC111 Project 2: FilmRecommandeur - Main
 
-This Python module contains the main code for Project 2: OptiTransport.
+This Python module contains the main code for Project 2: FilmRecommandeur.
 Please consult Minh Nguyen at huynhtuanminh.nguyen@mail.utoronto.ca
 for more information.
 

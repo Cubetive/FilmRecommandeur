@@ -1,6 +1,6 @@
-"""CSC111 Project 2: OptiTransport - Graph
+"""CSC111 Project 2: FilmRecommandeur - Graph
 
-This Python module contains the Graph structure code for Project 2: OptiTransport.
+This Python module contains the Graph structure code for Project 2: FilmRecommandeur.
 
 Copyright and Usage Information
 ===============================
@@ -10,7 +10,7 @@ under the MIT License. Please consult LICENSE for further details.
 Copyright (c) 2025 Minh Nguyen & Yifan Qiu
 """
 from __future__ import annotations
-from typing import Any, Optional
+from typing import Any, Union
 
 import networkx as nx
 
@@ -18,105 +18,95 @@ import networkx as nx
 MAX_VERTICES = 5000
 
 
-class Service:
-    """A service class to store information about a specific service.
-    This can be either train services (such as GO Train) or airlines (like Air Canada)
-
-    Instance Attributes:
-        - name: The name of the service
-        - service_type: The type of the service
-        - departure: The name of the location which the service departs from
-        - arrival: The name of the location which the service arrives at
-        - price: The associated price to use this service (for one adult). This will also
-        be a weighting type
-        - weighting: A dictionary of weightings which will have the following ratings:
-            - accessibility: A weighting from 0 to 1, determining how good the accessbility service is. If
-            there is no information on this, then it'll always be 0.
-            - overall_weight: A computed overall rating of the service. This metric will be used
-            if no preference is selected.
-
-    Representaion Invariants:
-        - price >= 0.0
-        - service_type in ['train', 'plane', 'bus']
-        - 0 <= weighting['accessibility'] <= 1
-        - 0 <= weighting['overall_weight'] <= 10
-    """
-    name: str
-    service_type: str
-    departure: str
-    arrival: str
-    price: float
-    weighting: dict[str, Optional[float]]
-
-    def __init__(self, name: str, service_type: str, depature: str,
-                 arrival: str, price: float, weighting: dict[str, Optional[float]]):
-        self.name = name
-        self.service_type = service_type
-        self.departure = depature
-        self.arrival = arrival
-        self.price = price
-        self.weighting = weighting
-
-    def average(self, lst: list[int | float]) -> float:
-        """Get the average of the elements of the list
-        """
-        if len(lst) < 1:
-            return 0
-        else:
-            return sum(lst) / len(lst)
-
-    def bound_weight(self, value: int | float) -> float:
-        """Bound the weight value between -1 and 1
-        """
-        return min(max(value, -1), 1)
-
-    def compute_overall_weighting(self, all_services: set[Service]) -> None:
-        """Compute the overall rating of this particular instance of service, by
-        using the data from all services that exist within the directional edge.
-
-        The final output is rounded to 3 decimal points.
-
-        Preconditions:
-            - self in all_services
-        """
-        # Price weighting
-        price_diff = self.average([serv.price for serv in all_services]) - self.price
-        price_weight = self.bound_weight(price_diff / 50)
-
-        # Accessibility weighting
-        accessibility_diff = (self.weighting['accessibility'] -
-                              self.average([serv.weighting['accessibility'] for serv in all_services]))
-        accessibility_weight = self.bound_weight(accessibility_diff * 50)
-
-        # Final weighting and assignment
-        final_weighting = max(round((price_weight + accessibility_weight) * 5, 3), 0)
-
-        self.weighting['overall_weighting'] = final_weighting
-
-
 class _Vertex:
     """A vertex in a graph.
 
     Instance Attributes:
-        - item: The data stored in this vertex.
+        - item: The data stored in this vertex, representing a user or movie.
+        - kind: The type of this vertex: 'user' or 'movie'.
         - neighbours: The vertices that are adjacent to this vertex.
 
     Representation Invariants:
         - self not in self.neighbours
+        - kind in ['user', 'movie']
         - all(self in u.neighbours for u in self.neighbours)
     """
     item: Any
-    neighbours: dict[_Vertex, set[Service]]
+    kind: str
+    neighbours: dict[_Vertex, list[float]]
 
-    def __init__(self, item: Any, neighbours: dict[_Vertex, set[Service]]) -> None:
+    def __init__(self, item: Any, kind: str, neighbours: dict[_Vertex, list[float]]) -> None:
         """Initialize a new vertex with the given item and neighbours."""
         self.item = item
+        self.kind = kind
         self.neighbours = neighbours
 
-    def compute_all_services_overall_weighting(self, services: set[Service]) -> None:
-        """Compute the weighting of every service in the edge"""
-        for service in services:
-            service.compute_overall_weighting(services)
+    def degree(self) -> int:
+        """Return the degree of this vertex."""
+        return len(self.neighbours)
+
+    def weight(self, other: _Vertex) -> float:
+        """Return the weight of the edge between self and other."""
+        if other in self.neighbours:
+            return self.neighbours[other][0]
+        else:
+            return 0
+
+    def advanced_weight(self, other: _Vertex) -> float:
+        """Return the advanced weight of the edge between self and other.
+        Advanced weight is calculated by:
+            advanced_weight = score + (score * sentiment_score)
+        """
+        if other in self.neighbours:
+            score, sentiment_score = self.neighbours[other]
+            return round(score + (score * sentiment_score), 1)
+        else:
+            return 0
+
+    def similarity_score_unweighted(self, other: _Vertex) -> float:
+        """Return the unweighted similarity score between this vertex and other."""
+        if self.degree() == 0 or other.degree() == 0:
+            return 0
+        else:
+            our_neighbours = set(self.neighbours.keys())
+            their_neighbours = set(other.neighbours.keys())
+
+            intersect = set.intersection(our_neighbours, their_neighbours)
+            union = set.union(our_neighbours, their_neighbours)
+            return len(intersect) / len(union)
+
+    def similarity_score_weighted(self, other: _Vertex, restriction: int) -> float:
+        """Return the weighted similarity score between this vertex and other,
+        using only the scoring system.
+        """
+        if self.degree() == 0 or other.degree() == 0:
+            return 0
+        else:
+            our_neighbours = set(self.neighbours.keys())
+            their_neighbours = set(other.neighbours.keys())
+
+            intersect = set.intersection(our_neighbours, their_neighbours)
+            intersect_restrict = set([vertex for vertex in intersect
+                                      if abs(self.weight(vertex) - other.weight(vertex)) <= restriction])
+            union = set.union(our_neighbours, their_neighbours)
+            return len(intersect_restrict) / len(union)
+
+    def similarity_score_weighted_plus(self, other: _Vertex, restriction: int) -> float:
+        """Return the weighted similarity score between this vertex and other,
+        using both the scoring system and sentiment scores.
+        """
+        if self.degree() == 0 or other.degree() == 0:
+            return 0
+        else:
+            our_neighbours = set(self.neighbours.keys())
+            their_neighbours = set(other.neighbours.keys())
+
+            intersect = set.intersection(our_neighbours, their_neighbours)
+            intersect_restrict = set([vertex for vertex in intersect
+                                      if abs(self.advanced_weight(vertex) - other.advanced_weight(vertex))
+                                      <= restriction])
+            union = set.union(our_neighbours, their_neighbours)
+            return len(intersect_restrict) / len(union)
 
 
 class Graph:
@@ -135,7 +125,7 @@ class Graph:
         """Initialize an empty graph (no vertices or edges)."""
         self._vertices = {}
 
-    def add_vertex(self, item: Any) -> None:
+    def add_vertex(self, item: Any, kind: str) -> None:
         """Add a vertex with the given item to this graph.
 
         The new vertex is not adjacent to any other vertices.
@@ -144,11 +134,11 @@ class Graph:
             - item not in self._vertices
         """
         if item not in self._vertices:
-            self._vertices[item] = _Vertex(item, dict())
+            self._vertices[item] = _Vertex(item, kind, {})
 
-    def add_edge_service(self, item1: Any, item2: Any, serv: Service) -> None:
-        """Add an edge from item1 to item2 if it doesn't exist yet, then add the serv
-        to the edge.
+    def add_edge(self, item1: Any, item2: Any, weight: list[float]) -> None:
+        """Add an edge between the two vertices with the given items in this graph,
+        with the given weight.
 
         Raise a ValueError if item1 or item2 do not appear as vertices in this graph.
 
@@ -159,34 +149,78 @@ class Graph:
             v1 = self._vertices[item1]
             v2 = self._vertices[item2]
 
-            # Add the new edge and service (if it doesn't exist, else, only add the service)
-            if v2 not in v1.neighbours:
-                v1.neighbours[v2] = set()
-
-            v1.neighbours[v2].add(serv)
+            # Add the new edge
+            v1.neighbours[v2] = weight
+            v2.neighbours[v1] = weight
         else:
             # We didn't find an existing vertex for both items.
             raise ValueError
 
-    def find_optimal_route(self, start_item: Any, end_item: Any, weight_type: str = '',
-                           transport_type: str = '') -> list[Service]:
-        """Return a list of services such that the first item has its depature location that is
-        item1 and the last item of the list has its arrival location as item2.
+    def adjacent(self, item1: Any, item2: Any) -> bool:
+        """Return whether item1 and item2 are adjacent vertices in this graph.
 
-        It will be optimized based on the filter_type, which can either be:
-        overall, price, or accessibility
+        Return False if item1 or item2 do not appear as vertices in this graph.
+        """
+        if item1 in self._vertices and item2 in self._vertices:
+            v1 = self._vertices[item1]
+            return any(v2.item == item2 for v2 in v1.neighbours)
+        else:
+            return False
 
-        Transport type will be for people who may be interested in travelling in particular
-        transportations only. If left as an empty string, then it'll check everything.
+    def get_neighbours(self, item: Any) -> set:
+        """Return a set of the neighbours of the given item.
 
-        Raise a ValueEror if start_item or end_item do not appear as vertices in this graph.
+        Note that the *items* are returned, not the _Vertex objects themselves.
+
+        Raise a ValueError if item does not appear as a vertex in this graph.
+        """
+        if item in self._vertices:
+            v = self._vertices[item]
+            return {neighbour.item for neighbour in v.neighbours}
+        else:
+            raise ValueError
+
+    def get_all_vertices(self, kind: str = '') -> set:
+        """Return a set of all vertex items in this graph.
+
+        If kind != '', only return the items of the given vertex kind.
 
         Preconditions:
-            - start_item != end_item
+            - kind in {'', 'user', 'book'}
         """
-        # TODO Implement this method (when we have a plan on how to implement it)
+        if kind != '':
+            return {v.item for v in self._vertices.values() if v.kind == kind}
+        else:
+            return set(self._vertices.keys())
 
-    def to_networkx(self, max_vertices: int = MAX_VERTICES) -> nx.DiGraph:
+    def get_weight(self, item1: Any, item2: Any, advanced: bool = False) -> Union[int, float]:
+        """Return the weight of the edge between the given items.
+
+        Return 0 if item1 and item2 are not adjacent.
+
+        Preconditions:
+            - item1 and item2 are vertices in this graph
+        """
+        v1 = self._vertices[item1]
+        v2 = self._vertices[item2]
+
+        if advanced:
+            return v1.advanced_weight(v2)
+        else:
+            return v1.weight(v2)
+
+    def average_weight(self, item: Any) -> float:
+        """Return the average weight of the edges adjacent to the vertex corresponding to item.
+
+        Raise ValueError if item does not corresponding to a vertex in the graph.
+        """
+        if item in self._vertices:
+            v = self._vertices[item]
+            return sum(v.neighbours.values()) / len(v.neighbours)
+        else:
+            raise ValueError
+
+    def to_networkx(self, max_vertices: int = MAX_VERTICES, advanced: bool = False) -> nx.Graph:
         """Convert this graph into a directional networkx graph
 
         max_vertices specifies the maximum number of vertices that can appear in the graph.
@@ -194,7 +228,7 @@ class Graph:
         Preconditions:
             - max_vertices > 0
         """
-        graph_nx = nx.DiGraph()
+        graph_nx = nx.Graph()
         for v in self._vertices.values():
             graph_nx.add_node(v.item)
 
@@ -202,13 +236,71 @@ class Graph:
                 if graph_nx.number_of_nodes() < max_vertices:
                     graph_nx.add_node(u.item)
 
-                if u.item in graph_nx.nodes:
-                    graph_nx.add_edge(v.item, u.item)
+                if u.item not in graph_nx.nodes:
+                    continue
+
+                if advanced:
+                    graph_nx.add_edge(v.item, u.item, weight=v.advanced_weight(u))
+                else:
+                    graph_nx.add_edge(v.item, u.item, weight=v.weight(u))
 
             if graph_nx.number_of_nodes() >= max_vertices:
                 break
 
         return graph_nx
+
+    def get_similarity_score(self, item1: Any, item2: Any,
+                             score_type: str = 'unweighted', restriction: int = 5) -> float:
+        """Return the similarity score between the two given items in this graph.
+
+        The similarity score will be based on the score_type, which can be 'unweighted',
+        'weighted', or 'advanced_weighted'. It will also be based on a restriction,
+        which will determines how similar the scores should be (only applies to 'weighted'
+        and 'advanced_weighted')
+
+        Raise a ValueError if item1 or item2 do not appear as vertices in this graph.
+
+        Preconditions:
+            - score_type in {'unweighted', 'weighted', 'advanced_weighted'}
+            - restriction >= 0
+        """
+        if item1 in self._vertices and item2 in self._vertices:
+            if score_type == 'unweighted':
+                return self._vertices[item1].similarity_score_unweighted(self._vertices[item2])
+            elif score_type == 'weighted':
+                return self._vertices[item1].similarity_score_weighted(self._vertices[item2], restriction)
+            else:
+                return self._vertices[item1].similarity_score_weighted_plus(self._vertices[item2], restriction)
+        else:
+            raise ValueError
+
+    def recommend_movie(self, movie: str, limit: int,
+                        score_type: str = 'unweighted', restriction: int = 5) -> list[tuple[float, str]]:
+        """Return a list of tuples of up to <limit> recommended movies based on similarity to the given movie.
+        The tuple will contain the following information: movie title, similarity score
+
+        Preconditions:
+            - movie in self._vertices
+            - self._vertices[movie].kind == 'movie'
+            - limit >= 1
+            - score_type in {'unweighted' , 'weighted', 'advanced_weighted'}
+            - restriction >= 0
+        """
+        # A list of tuples between similarity score and book title
+        ratings = []
+
+        # Add other book items and their similarity score with *book*
+        for movie_item in self.get_all_vertices('movie'):
+            if movie_item != movie:
+                similarity_score = self.get_similarity_score(movie, movie_item, score_type, restriction)
+                if similarity_score > 0.0:
+                    ratings.append((similarity_score, movie_item))
+
+        # Sort ratings from highest to lowest
+        ratings.sort(reverse=True)
+
+        # Return min{limit. len(ratings)} recommended books
+        return [ratings[i] for i in range(min(limit, len(ratings)))]
 
 
 if __name__ == "__main__":
@@ -217,7 +309,7 @@ if __name__ == "__main__":
 
     import python_ta
     python_ta.check_all(config={
-        'extra-imports': [],
+        'extra-imports': ['networkx'],
         'allowed-io': [],
         'max-line-length': 120
     })

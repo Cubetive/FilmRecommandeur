@@ -1,4 +1,4 @@
-"""CSC111 Project 2: OptiTransport - Database Import
+"""CSC111 Project 2: FilmRecommandeur - Database Import
 
 This Python module is used to visualize the graphs.
 
