@@ -21,3 +21,15 @@ def load_service_graph(database_file: str) -> Graph:
             name, service type, departure, arrival, price, accessibility, user preference, average delay
     """
     # TODO Implement the method and get a database which corresponds to this
+
+
+if __name__ == "__main__":
+    import doctest
+    doctest.testmod()
+
+    import python_ta
+    python_ta.check_all(config={
+        'extra-imports': ['graph'],
+        'allowed-io': [],
+        'max-line-length': 120
+    })

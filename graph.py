@@ -12,6 +12,11 @@ Copyright (c) 2025 Minh Nguyen & Yifan Qiu
 from __future__ import annotations
 from typing import Any, Optional
 
+import networkx as nx
+
+
+MAX_VERTICES = 5000
+
 
 class Service:
     """A service class to store information about a specific service.
@@ -22,45 +27,71 @@ class Service:
         - service_type: The type of the service
         - departure: The name of the location which the service departs from
         - arrival: The name of the location which the service arrives at
-        - price: The associated price to use this service (for one adult)
-        - ratings: A dictionary of ratings which will have the following ratings:
+        - price: The associated price to use this service (for one adult). This will also
+        be a weighting type
+        - weighting: A dictionary of weightings which will have the following ratings:
             - accessibility: A weighting from 0 to 1, determining how good the accessbility service is. If
             there is no information on this, then it'll always be 0.
-            - user_pref: Online ratings of the service (if applicable)
-            - average_delay: The average delay time of the service (if applicable)
-            - overall_rating: A computed overall rating of the service. This metric will be used
+            - overall_weight: A computed overall rating of the service. This metric will be used
             if no preference is selected.
 
     Representaion Invariants:
         - price >= 0.0
         - service_type in ['train', 'plane', 'bus']
-        - 0 <= ratings['accessibility'] <= 1
-        - 0 <= ratings['overall_rating'] <= 5
+        - 0 <= weighting['accessibility'] <= 1
+        - 0 <= weighting['overall_weight'] <= 10
     """
     name: str
     service_type: str
     departure: str
     arrival: str
     price: float
-    ratings: dict[str, Optional[float]]
+    weighting: dict[str, Optional[float]]
 
     def __init__(self, name: str, service_type: str, depature: str,
-                 arrival: str, price: float, ratings: dict[str, Optional[float]]):
+                 arrival: str, price: float, weighting: dict[str, Optional[float]]):
         self.name = name
         self.service_type = service_type
         self.departure = depature
         self.arrival = arrival
         self.price = price
-        self.ratings = ratings
+        self.weighting = weighting
 
-    def compute_overall_rating(self, other_services: set[Service]) -> None:
+    def average(self, lst: list[int | float]) -> float:
+        """Get the average of the elements of the list
+        """
+        if len(lst) < 1:
+            return 0
+        else:
+            return sum(lst) / len(lst)
+
+    def bound_weight(self, value: int | float) -> float:
+        """Bound the weight value between -1 and 1
+        """
+        return min(max(value, -1), 1)
+
+    def compute_overall_weighting(self, all_services: set[Service]) -> None:
         """Compute the overall rating of this particular instance of service, by
-        using the data from other services which shares the same edge as this service.
+        using the data from all services that exist within the directional edge.
+
+        The final output is rounded to 3 decimal points.
 
         Preconditions:
-            - self not in other_services
+            - self in all_services
         """
-        # TODO: Implement the individual weighting system
+        # Price weighting
+        price_diff = self.average([serv.price for serv in all_services]) - self.price
+        price_weight = self.bound_weight(price_diff / 50)
+
+        # Accessibility weighting
+        accessibility_diff = (self.weighting['accessibility'] -
+                              self.average([serv.weighting['accessibility'] for serv in all_services]))
+        accessibility_weight = self.bound_weight(accessibility_diff * 50)
+
+        # Final weighting and assignment
+        final_weighting = max(round((price_weight + accessibility_weight) * 5, 3), 0)
+
+        self.weighting['overall_weighting'] = final_weighting
 
 
 class _Vertex:
@@ -85,11 +116,11 @@ class _Vertex:
     def compute_all_services_overall_weighting(self, services: set[Service]) -> None:
         """Compute the weighting of every service in the edge"""
         for service in services:
-            service.compute_overall_rating(services ^ {service})
+            service.compute_overall_weighting(services)
 
 
 class Graph:
-    """A graph.
+    """A (weighted) graph.
 
     Representation Invariants:
         - all(item == self._vertices[item].item for item in self._vertices)
@@ -137,19 +168,47 @@ class Graph:
             # We didn't find an existing vertex for both items.
             raise ValueError
 
-    def find_optimal_route(self, item1: Any, item2: Any, filter_type='') -> list[Service]:
+    def find_optimal_route(self, start_item: Any, end_item: Any, weight_type: str = '',
+                           transport_type: str = '') -> list[Service]:
         """Return a list of services such that the first item has its depature location that is
         item1 and the last item of the list has its arrival location as item2.
 
         It will be optimized based on the filter_type, which can either be:
-        overall, price, accessibility, user preference, average delay, and specific services only.
+        overall, price, or accessibility
 
-        Raise a ValueEror if item1 or item2 do not appear as vertices in this graph.
+        Transport type will be for people who may be interested in travelling in particular
+        transportations only. If left as an empty string, then it'll check everything.
+
+        Raise a ValueEror if start_item or end_item do not appear as vertices in this graph.
 
         Preconditions:
-            - item1 != item2
+            - start_item != end_item
         """
         # TODO Implement this method (when we have a plan on how to implement it)
+
+    def to_networkx(self, max_vertices: int = MAX_VERTICES) -> nx.DiGraph:
+        """Convert this graph into a directional networkx graph
+
+        max_vertices specifies the maximum number of vertices that can appear in the graph.
+
+        Preconditions:
+            - max_vertices > 0
+        """
+        graph_nx = nx.DiGraph()
+        for v in self._vertices.values():
+            graph_nx.add_node(v.item)
+
+            for u in v.neighbours:
+                if graph_nx.number_of_nodes() < max_vertices:
+                    graph_nx.add_node(u.item)
+
+                if u.item in graph_nx.nodes:
+                    graph_nx.add_edge(v.item, u.item)
+
+            if graph_nx.number_of_nodes() >= max_vertices:
+                break
+
+        return graph_nx
 
 
 if __name__ == "__main__":
