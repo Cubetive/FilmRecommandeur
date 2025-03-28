@@ -275,9 +275,9 @@ class Graph:
             raise ValueError
 
     def recommend_movie(self, movie: str, limit: int,
-                        score_type: str = 'unweighted', restriction: int = 5) -> list[tuple[float, str]]:
+                        score_type: str = 'unweighted', restriction: int = 5) -> list[tuple[float, str, str]]:
         """Return a list of tuples of up to <limit> recommended movies based on similarity to the given movie.
-        The tuple will contain the following information: movie title, similarity score
+        The tuple will contain the following information: movie title, similarity score, similar to
 
         Preconditions:
             - movie in self._vertices
@@ -294,7 +294,7 @@ class Graph:
             if movie_item != movie:
                 similarity_score = self.get_similarity_score(movie, movie_item, score_type, restriction)
                 if similarity_score > 0.0:
-                    ratings.append((similarity_score, movie_item))
+                    ratings.append((round(similarity_score * 1000, 2), movie_item, movie))
 
         # Sort ratings from highest to lowest
         ratings.sort(reverse=True)

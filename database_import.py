@@ -29,6 +29,7 @@ def load_review_graph(database_file: str, sentiment_file: str) -> Graph:
 
     with open(database_file, 'r') as file:
         reader = csv.reader(file, skipinitialspace=True)
+        next(reader)  # Skip header
 
         for row in reader:
             title, reviewer = row[1:3]
