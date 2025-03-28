@@ -5,13 +5,9 @@ hypothesis
 pytest
 python-ta~=2.9.1
 
-# Graphics and data visualization
-plotly>=5.22.0
-pygame==2.6.1
+# Application builder
 pyqt5==5.15.11
 
-# Specific to a later exercise
+# Graphics and data visualization
+plotly>=5.22.0
 networkx
-numpy
-scipy
-kaleido
