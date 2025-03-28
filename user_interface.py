@@ -31,7 +31,7 @@ class UserInterface(QMainWindow):
 
     Instance Attributes:
         - graph: The graph used by the UI.
-        - is_running: whether or not the "recommend" command is currently running.
+        - is_running: whether or not the command is currently running.
     """
     # Private Instance Attributes:
     #     - _widgets:
@@ -91,15 +91,19 @@ class UserInterface(QMainWindow):
         selection_layout.addWidget(selection_label, 0, 0, Qt.AlignTop)
 
         # Selection box (movie selection)
+        movie_titles = list(self.graph.get_all_vertices('movie'))
+        movie_titles.sort(reverse=True)
+
         for i in range(1, 5):
             normalized_name = 'movie_selection_option_' + str(i)
             self._widgets[normalized_name] = QComboBox()
             self._widgets[normalized_name].setPlaceholderText('Choose a watched/favourite movie')
+            # Import movie names
+            for title in movie_titles:
+                self._widgets[normalized_name].insertItem(0, title)
+
             # Insert dummy
             self._widgets[normalized_name].insertItem(0, 'Unselected')
-            # Import movie names
-            for title in self.graph.get_all_vertices('movie'):
-                self._widgets[normalized_name].insertItem(0, title)
 
             selection_layout.addWidget(self._widgets[normalized_name], i, 0, Qt.AlignCenter)
 
