@@ -230,23 +230,27 @@ class Graph:
         """
         graph_nx = nx.Graph()
         for v in self._vertices.values():
-            graph_nx.add_node(v.item)
-
-            for u in v.neighbours:
-                if graph_nx.number_of_nodes() < max_vertices:
-                    graph_nx.add_node(u.item)
-
-                if u.item not in graph_nx.nodes:
-                    continue
-
-                if advanced:
-                    graph_nx.add_edge(v.item, u.item, weight=v.advanced_weight(u))
-                else:
-                    graph_nx.add_edge(v.item, u.item, weight=v.weight(u))
-
-            if graph_nx.number_of_nodes() >= max_vertices:
-                break
-
+            if v.item not in graph_nx and graph_nx.number_of_nodes() < max_vertices:
+                graph_nx.add_node(v.item, kind=v.kind)
+            if v.item in graph_nx:
+                for u in v.neighbours:
+                    if u.item not in graph_nx:
+                        if graph_nx.number_of_nodes() < max_vertices:
+                            graph_nx.add_node(u.item, kind=u.kind)
+                        else:
+                            continue
+                    score = v.neighbours[u][0]
+                    sentiment = v.neighbours[u][1]
+                    if advanced:
+                        advanced_weight = v.advanced_weight(u)
+                        graph_nx.add_edge(v.item, u.item,
+                                          score=score,
+                                          sentiment=sentiment,
+                                          advanced_weight=advanced_weight)
+                    else:
+                        graph_nx.add_edge(v.item, u.item,
+                                          score=score,
+                                          sentiment=sentiment)
         return graph_nx
 
     def get_similarity_score(self, item1: Any, item2: Any,

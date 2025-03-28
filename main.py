@@ -16,6 +16,7 @@ from PyQt5.QtWidgets import QApplication
 import database_import
 from graph import Graph
 from user_interface import UserInterface
+from visualization import visualize_graph
 
 DATABASE_FILE = 'data/rottentomatoes-400k.csv'
 SENTIMENT_FILE = 'data/sentiment_scores.txt'
@@ -23,12 +24,10 @@ SENTIMENT_FILE = 'data/sentiment_scores.txt'
 if __name__ == "__main__":
     # Build review graph
     review_graph = database_import.load_review_graph(DATABASE_FILE, SENTIMENT_FILE)
+    visualize_graph(review_graph)
 
     # Build application
     app = QApplication([])
     window = UserInterface(review_graph)
     window.show()
     app.exec_()
-
-    # Build graph visualization
-    # TODO Visualize graph
