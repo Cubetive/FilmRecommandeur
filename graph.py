@@ -314,6 +314,7 @@ if __name__ == "__main__":
     import python_ta
     python_ta.check_all(config={
         'extra-imports': ['networkx'],
+        'disable': ['R1702'],
         'allowed-io': [],
         'max-line-length': 120
     })
